@@ -1,0 +1,102 @@
+import CoolProp.CoolProp as CP
+from sympy import symbols, Eq, solve
+import time
+
+
+temperature_C2 = 38.25744179  # Temperature in Celsius
+ratio = 0.5
+
+n = 0
+
+while n < 10: # 10 iterations
+        
+    temperature_C1 = 0.0  # Dry-bulb temperature in Celsius 
+    print("###############################################################")
+    Th_real = temperature_C2
+    Tc = temperature_C1
+    COP_carnot = (Th_real + 273.15) / (Th_real - Tc)
+    COP_real_c = ratio *  COP_carnot
+    Qc = 100
+
+    Th_shifted = Th_real - 2.5
+    Qh = (Th_shifted-22.5)/0.1
+
+    COP_real = Qh / (Qh - Qc)
+    print("COP_real_c = ", COP_real_c)
+    print("COP_real = ", COP_real)
+    print("###############################################################")
+
+
+
+    ##############################################################################################################
+    # Step 1: Enter the psychrometric chart with x=1 and T=0°C to get h1 and s1
+
+    vapor_quality_1 = 1.0  # Saturated vapor (x=1) 
+
+    # Convert temperature to Kelvin
+    temperature_K1 = temperature_C1 + 273.15
+
+    # Calculate enthalpy (h1) and entropy (s1) for R134a
+    h1 = CP.PropsSI('H', 'T', temperature_K1, 'Q', vapor_quality_1, 'R134a') / 1000  # in kJ/kg
+    s1 = CP.PropsSI('S', 'T', temperature_K1, 'Q', vapor_quality_1, 'R134a') / 1000  # in kJ/(kg·K)
+
+    print(f"h1 (Specific Enthalpy at T=0°C, x=1): {h1:.2f} kJ/kg")
+    print(f"s1 (Specific Entropy at T=0°C, x=1): {s1:.2f} kJ/(kg·K)")
+
+    # Step 2: Set s2 = s1 and find p2 (saturation pressure at 38°C) to get h2s
+    temperature_K2 = temperature_C2 + 273.15
+
+    # Calculate saturation pressure at 38°C for R134a
+    p2 = CP.PropsSI('P', 'T', temperature_K2, 'Q', 1, 'R134a')
+
+    # Calculate enthalpy at T=38°C with entropy s2 = s1 for R134a
+    h2s = CP.PropsSI('H', 'T', temperature_K2, 'S', s1 * 1000, 'R134a') / 1000  # in kJ/kg
+
+    # Step 3: Use the given equation to solve for h2
+    h2 = h1 +  (h2s - h1) / 0.7
+
+    print(f"h2 (Enthalpy after using the given equation): {h2:.2f} kJ/kg")
+
+    # Step 4: Enter the chart with x=0 (saturated liquid) and p2 to get h3
+    # For a saturated liquid at p2, h3 will be the enthalpy of the liquid phase at p2
+    h3 = CP.PropsSI('H', 'P', p2, 'Q', 0, 'R134a') / 1000  # in kJ/kg
+
+    # Step 5: Set h4 = h3
+    h4 = h3
+
+    print(f"h3 (Specific Enthalpy at T=38°C, x=0): {h3:.2f} kJ/kg")
+    print(f"h4 (Specific Enthalpy): {h4:.2f} kJ/kg")
+
+    m1 = 100 / (h1-h4)
+    m2 = Qh / (h2-h3)
+    print('---')
+    print("mdot_Qc = ",m1, "kg/s")
+    print("mdot_Qh =", m2, "kg/s")
+    print('---')
+    COP_new = (h2-h3)/(h2-h1)
+    print("###############################################################")
+    print("COP_new = ", COP_new)
+    print("###############################################################")
+    ##############################################################################################################
+
+    # Define variables
+    X, Y = symbols('X Y')
+
+    # Define equations
+    eq1 = Eq(X * (Y + 273.15) / (Y - 0), COP_new) # real
+    eq2 = Eq(((Y -2.5 - 22.5) / 0.1) / (((Y -2.5 - 22.5) / 0.1) - 100), COP_new) #
+
+    # Solve the equations
+    solution = solve((eq1, eq2), (X, Y))
+
+    # Print the solution
+    print("Solution:")
+    ratio = solution[0][0]
+    temperature_C2 = solution[0][1]
+    print("ratio =", ratio)
+    print("Th = ", temperature_C2)
+    print("###############################################################")
+    n += 1
+
+
+
